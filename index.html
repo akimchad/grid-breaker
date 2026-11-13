@@ -56,6 +56,8 @@
     </div>
     <div id="tooltip" class="panel"></div>
     <div id="banner"></div>
+    <div id="tut-banner" class="panel"></div>
+    <button id="skip-btn">SKIP TUTORIAL &gt;&gt;</button>
   </div>
 
   <!-- TITLE -->
@@ -66,7 +68,10 @@
       <h2>NEON SIEGE</h2>
       <div id="parade"></div>
       <p class="pitch">Defend the <c>Unstable Power Core</c> for <b>5 waves</b>. Every drone <r>telegraphs</r> its attack before it strikes — shove, hijack and fry them so their own fire turns on each other.</p>
-      <button id="start-btn" class="big-btn">INITIATE BREACH ▶</button>
+      <div class="title-btns">
+        <button id="start-btn" class="big-btn">INITIATE BREACH ▶</button>
+        <button id="tut-btn" class="big-btn ghost">[ PLAY TUTORIAL ]</button>
+      </div>
       <div class="controls">
         <span><b>CLICK</b> select / act</span><span><b>1 2 3</b> move · abilities</span><span><b>SPACE</b> end turn</span>
         <span><b>TAB</b> cycle unit</span><span><b>ESC / RMB</b> cancel</span><span><b>WHEEL · RMB-DRAG · WASD</b> camera</span>
@@ -85,6 +90,17 @@
     </div>
   </div>
 
+  <!-- TUTORIAL COMPLETE -->
+  <div class="screen" id="tut-screen">
+    <div class="screen-inner">
+      <div class="kicker ok">// BOOT CAMP COMPLETE //</div>
+      <h1 class="tut-h1">SYSTEMS ONLINE</h1>
+      <h2>READY FOR REAL COMBAT</h2>
+      <p class="pitch">You moved, slammed a drone onto a live grate, and turned an enemy's own attack against its teammate. The real thing has 5 waves.</p>
+      <button id="tut-start-btn" class="big-btn">START WAVE 1 ▶</button>
+    </div>
+  </div>
+
   <!-- HELP -->
   <div id="help">
     <div class="panel help-inner">
@@ -100,6 +116,7 @@
         <li><b>Waves</b> last 3 turns. Warps glow before reinforcements land — stand on them to block.</li>
         <li><b>RESET TURN</b> rewinds the player phase once per battle (Backspace).</li>
       </ul>
+      <div class="help-actions"><button id="replay-tut-btn" class="mini-btn">▶ REPLAY TUTORIAL</button></div>
       <p class="dim">click anywhere to close · H to toggle</p>
     </div>
   </div>

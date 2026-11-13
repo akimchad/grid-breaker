@@ -309,3 +309,67 @@ m { color: var(--magenta); } y { color: var(--yellow); }
   .screen h1 { font-size: 30px; }
   #parade img { width: 48px; height: 48px; }
 }
+
+/* ---------- tutorial ---------- */
+.title-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.big-btn.ghost {
+  background: rgba(255, 60, 240, 0.08); color: var(--magenta); border: 1px solid var(--magenta);
+  box-shadow: 0 0 18px rgba(255, 60, 240, 0.45), 5px 5px 0 rgba(0,0,0,0.6);
+  animation: ghostglow 1.6s ease-in-out infinite;
+}
+.big-btn.ghost:hover { background: rgba(255, 60, 240, 0.25); color: #fff; }
+@keyframes ghostglow { 50% { box-shadow: 0 0 30px rgba(255, 60, 240, 0.85), 5px 5px 0 rgba(0,0,0,0.6); } }
+
+#tut-banner, #skip-btn { display: none; }
+body.tutorial #tut-banner { display: block; }
+body.tutorial #skip-btn { display: block; }
+body.tutorial #wave-panel, body.tutorial #inspect { display: none; }
+#hint:empty { display: none; }
+
+#tut-banner {
+  top: 14px; left: 50%; transform: translateX(-50%);
+  width: clamp(300px, calc(100vw - 740px), 560px);
+  padding: 10px 14px 12px; border-color: var(--magenta);
+  box-shadow: 0 0 24px rgba(255, 60, 240, 0.25), 4px 4px 0 rgba(0,0,0,0.5);
+  pointer-events: none; z-index: 12;
+}
+#tut-banner.enter { animation: tutenter 0.35s ease-out; }
+#tut-banner.advance { animation: tutadvance 0.6s ease-out; }
+#tut-banner.nudge { animation: tutnudge 0.35s; }
+.tut-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-family: var(--px); font-size: 8px; color: var(--magenta); margin-bottom: 7px; }
+.tut-dots { display: flex; gap: 4px; }
+.tut-dots i { width: 14px; height: 6px; background: #241a2e; border: 1px solid #000; }
+.tut-dots i.done { background: var(--green); }
+.tut-dots i.cur { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); animation: blink 0.8s steps(2) infinite; }
+.tut-text { font-size: 20px; line-height: 1.1; color: var(--text); }
+.tut-text b { color: var(--yellow); font-weight: normal; }
+@keyframes tutenter { from { opacity: 0; transform: translate(-50%, -12px); } }
+@keyframes tutadvance { 0% { box-shadow: 0 0 0 2px var(--green), 0 0 40px var(--green); } 100% { box-shadow: 0 0 24px rgba(255,60,240,0.25), 4px 4px 0 rgba(0,0,0,0.5); } }
+@keyframes tutnudge { 20% { transform: translate(calc(-50% - 8px), 0); } 40% { transform: translate(calc(-50% + 8px), 0); } 60% { transform: translate(calc(-50% - 5px), 0); } 80% { transform: translate(calc(-50% + 4px), 0); } }
+
+#skip-btn {
+  position: absolute; top: 14px; right: 14px; z-index: 13;
+  font-family: var(--px); font-size: 10px; padding: 10px 14px; color: #000; background: var(--cyan); border: none;
+  box-shadow: 0 0 16px var(--cyan), 4px 4px 0 var(--magenta);
+}
+#skip-btn:hover { background: #fff; }
+
+.act-btn.tutorial-pulse { animation: tutpulse 0.9s ease-in-out infinite; border-color: var(--c); z-index: 1; }
+@keyframes tutpulse {
+  0%, 100% { box-shadow: 0 0 6px var(--c), inset 0 0 0 1px var(--c); transform: translateY(0); }
+  50% { box-shadow: 0 0 28px var(--c), 0 0 60px color-mix(in srgb, var(--c) 45%, transparent), inset 0 0 0 2px var(--c); transform: translateY(-4px); }
+}
+
+.kicker.ok { color: var(--green); }
+#tut-screen h1.tut-h1 { color: var(--green); text-shadow: 0 0 20px var(--green), 4px 4px 0 var(--cyan), 8px 8px 0 #000; }
+.help-actions { margin: 12px 0 6px; display: flex; }
+.help-actions .mini-btn { flex: 0 0 auto; font-size: 9px; padding: 8px 12px; }
+
+@media (max-width: 1180px) {
+  #tut-banner { top: 214px; width: min(520px, calc(100vw - 460px)); min-width: 300px; }
+}
+@media (max-width: 760px) {
+  #tut-banner { top: 150px; width: calc(100vw - 32px); min-width: 0; }
+  .tut-text { font-size: 17px; }
+  #skip-btn { font-size: 8px; padding: 8px 10px; }
+}

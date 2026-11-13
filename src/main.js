@@ -13,6 +13,9 @@ import {
   healSquad, cleanupDead, moveUnit, executeAbility, livingEnemies, livingSquad, getCore,
   TOTAL_WAVES, WAVE_TURNS,
 } from './game/CombatResolver.js';
+import {
+  TutorialManager, createTutorialState, spawnHijackDrones, tutorialDone, markTutorialDone,
+} from './game/TutorialManager.js';
 
 const HINTS = {
   none: 'Select a mercenary — click it or press <b>TAB</b>.',
@@ -51,6 +54,11 @@ class Game {
     this.hud.on('action', (slot) => this.setAction(slot));
     this.hud.on('selectUnit', (id) => this.select(id));
     this.hud.on('mute', () => this.toggleMute());
+    this.hud.on('tutorial', () => this.startTutorial());
+    this.hud.on('skipTutorial', () => this.skipTutorial());
+    // Browsers only allow audio after a gesture; resume on the first one.
+    window.addEventListener('pointerdown', () => SoundFX.init(), { capture: true });
+    window.addEventListener('keydown', () => SoundFX.init(), { capture: true });
 
     // Attract-mode board behind the title screen
     this.state = newRun();
@@ -62,6 +70,8 @@ class Game {
     this.loop();
     this.startWatchdog();
     window.__game = this;
+    // First visit: drop straight into the playable Boot Camp.
+    if (!tutorialDone()) this.startTutorial();
   }
 
   // ---------------------------------------------------------------------------
@@ -98,10 +108,13 @@ class Game {
     SoundFX.init();
     SoundFX.select();
     this.hud.showScreen(null);
+    this.endTutorialUI();
     this.ended = false;
     this.mode = 'busy';
     this.selectedId = null;
     this.action = null;
+    this.hijackTarget = null;
+    this.clearOverlays();
     this.state = newRun();
     this.board.buildBoard(this.state);
     this.sm.resetView();
@@ -160,6 +173,11 @@ class Game {
 
   async endTurn() {
     if (this.mode !== 'player') return;
+    if (this.tut) {
+      if (this.tut.canEndTurn()) this.tutorialEndTurn();
+      else this.tutorialNudge();
+      return;
+    }
     const pending = livingSquad(this.state).some((u) => !u.moved || !u.acted);
     if (pending && performance.now() > this.endConfirmUntil) {
       this.endConfirmUntil = performance.now() + 2500;
@@ -226,7 +244,7 @@ class Game {
   }
 
   resetTurn() {
-    if (this.mode !== 'player' || !this.state.resetAvailable || !this.snapshot) {
+    if (this.tut || this.mode !== 'player' || !this.state.resetAvailable || !this.snapshot) {
       SoundFX.error();
       return;
     }
@@ -241,6 +259,98 @@ class Game {
     this.sm.addShake(0.3);
     const first = livingSquad(this.state)[0];
     this.select(first ? first.id : null, true);
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOOT CAMP tutorial
+  async startTutorial() {
+    SoundFX.init();
+    const tut = new TutorialManager();
+    this.tut = tut;
+    this.ended = false;
+    this.hud.showScreen(null);
+    this.hud.setTutorial(true);
+    this.mode = 'busy';
+    this.selectedId = null;
+    this.action = null;
+    this.hijackTarget = null;
+    this.clearOverlays();
+    this.state = createTutorialState();
+    this.board.buildBoard(this.state);
+    this.sm.resetView();
+    this.phaseLabel = 'BOOT CAMP';
+    this.refresh();
+    await this.sm.wait(0.35);
+    if (this.tut !== tut) return;
+    this.mode = 'player';
+    this.updateOverlays();
+    this.refresh();
+  }
+
+  skipTutorial() {
+    markTutorialDone();
+    SoundFX.click();
+    this.start();
+  }
+
+  endTutorialUI() {
+    this.tut = null;
+    this.hud.setTutorial(false);
+    this.hud.setTutorialPulse(null);
+    this.board.setBeacons([]);
+  }
+
+  tutorialNudge() {
+    SoundFX.error();
+    this.hud.nudgeTutorial();
+  }
+
+  updateTutorialUI() {
+    if (!this.tut) return;
+    this.hud.tutorialBanner(this.tut.info);
+    if (this.mode !== 'player') {
+      this.board.setBeacons([]);
+      this.hud.setTutorialPulse(null);
+      return;
+    }
+    const g = this.tut.guide(this);
+    this.board.setBeacons(g.tiles);
+    this.hud.setTutorialPulse(g.button);
+  }
+
+  async tutorialAdvance(tut) {
+    SoundFX.heal();
+    this.hud.tutorialBanner(tut.info, true);
+    if (tut.step === 2) {
+      await this.sm.wait(0.3);
+      if (this.tut !== tut) return;
+      await this.run((ev) => spawnHijackDrones(this.state, ev));
+    }
+  }
+
+  async tutorialEndTurn() {
+    const tut = this.tut;
+    SoundFX.click();
+    this.mode = 'busy';
+    this.selectedId = null;
+    this.action = null;
+    this.hijackTarget = null;
+    this.clearOverlays();
+    this.phaseLabel = 'RESOLUTION';
+    this.state.phase = 'resolve';
+    this.refresh();
+    this.hud.banner('RESOLUTION', 'Telegraphed attacks execute in order', 'orange');
+    await this.sm.wait(0.7);
+    if (this.tut !== tut) return;
+    await this.run((ev) => resolveEnemies(this.state, ev));
+    if (this.tut !== tut) return;
+    await this.sm.wait(0.6);
+    if (this.tut !== tut) return;
+    markTutorialDone();
+    this.endTutorialUI();
+    this.mode = 'over';
+    SoundFX.victory();
+    this.hud.showScreen('tut-screen');
   }
 
   toggleMute() {
@@ -258,16 +368,26 @@ class Game {
 
   select(id, silent = false) {
     if (this.mode !== 'player') return;
+    if (this.tut && id !== null && !this.tut.canSelect(this.state, id)) {
+      if (!silent) this.tutorialNudge();
+      return;
+    }
     this.selectedId = id;
     this.hijackTarget = null;
     const u = this.selectedUnit();
-    this.action = u && !u.moved ? 'move' : null;
+    this.action = u && !u.moved && (!this.tut || this.tut.canUseAction('move')) ? 'move' : null;
     if (!silent && u) SoundFX.select();
     this.updateOverlays();
     this.refresh();
   }
 
   cycleUnit() {
+    if (this.tut) {
+      const want = this.tut.requiredUnitKind();
+      const u = livingSquad(this.state).find((q) => q.kind === want);
+      if (u) this.select(u.id); else this.tutorialNudge();
+      return;
+    }
     const squad = livingSquad(this.state);
     if (!squad.length) return;
     const i = squad.findIndex((u) => u.id === this.selectedId);
@@ -282,6 +402,7 @@ class Game {
     const ab = ['move', ...UNIT_DEFS[u.kind].abilities][slot];
     const used = ab === 'move' ? u.moved : u.acted;
     if (used) { SoundFX.error(); return; }
+    if (this.tut && !this.tut.canUseAction(ab)) { this.tutorialNudge(); return; }
     this.action = this.action === ab ? null : ab;
     this.hijackTarget = null;
     SoundFX.click();
@@ -300,6 +421,13 @@ class Game {
   }
 
   currentTargets() {
+    const r = this.rawTargets();
+    if (!this.tut) return r;
+    const f = this.tut.filterTargets(this.state, this.action, r.targets, this.hijackTarget);
+    return { targets: f, area: [], options: r.options ? f : undefined };
+  }
+
+  rawTargets() {
     const u = this.selectedUnit();
     if (!u || !this.action) return { targets: [], area: [] };
     if (this.action === 'hijack' && this.hijackTarget) {
@@ -330,7 +458,7 @@ class Game {
         return;
       }
       // switching hijack target while choosing direction
-      if (this.action === 'hijack' && this.hijackTarget) {
+      if (this.action === 'hijack' && this.hijackTarget && !this.tut) {
         const base = abilityTargets(this.state, u, 'hijack').targets.find((t) => t.x === x && t.y === y);
         if (base) { this.hijackTarget = { x, y }; SoundFX.hijack(); this.updateOverlays(); this.refresh(); return; }
       }
@@ -340,10 +468,11 @@ class Game {
       else if (this.action !== 'move' && !ent.moved) { this.action = 'move'; this.updateOverlays(); this.refresh(); }
       return;
     }
-    if (u && this.action) SoundFX.error();
+    if (u && this.action) { if (this.tut) this.tutorialNudge(); else SoundFX.error(); }
   }
 
   async perform(u, x, y, option) {
+    const tut = this.tut;
     this.mode = 'busy';
     this.clearOverlays();
     this.hud.setPreview([]);
@@ -358,16 +487,20 @@ class Game {
     } else {
       await this.run((ev) => executeAbility(s, u, action, { x, y }, {}, ev));
     }
-    if (this.ended) return;
-    this.mode = 'player';
+    if (this.ended || this.tut !== tut) return;
     this.hijackTarget = null;
+    if (tut && tut.check(s)) {
+      await this.tutorialAdvance(tut);
+      if (this.tut !== tut) return;
+    }
+    this.mode = 'player';
     const cur = this.selectedUnit();
     if (!cur) {
       const next = livingSquad(s).find((q) => !q.moved || !q.acted);
       this.select(next ? next.id : null, true);
       return;
     }
-    this.action = !cur.moved ? 'move' : null;
+    this.action = !cur.moved && (!this.tut || this.tut.canUseAction('move')) ? 'move' : null;
     if (cur.moved && cur.acted) {
       const next = livingSquad(s).find((q) => !q.moved || !q.acted);
       if (next) { this.select(next.id, true); return; }
@@ -380,7 +513,7 @@ class Game {
   // Overlays, hover inspection and outcome previews
   clearOverlays() {
     const L = this.board.layers;
-    for (const k of ['range', 'area', 'select', 'preview', 'hover', 'optArrows']) L[k].clear();
+    for (const k of ['range', 'area', 'select', 'preview', 'hover', 'optArrows', 'pushArrows']) L[k].clear();
     this.hud.setPreview([]);
   }
 
@@ -414,7 +547,9 @@ class Game {
     } else if (this.mode !== 'player') {
       this.hint = this.mode === 'busy' ? '<i>…processing…</i>' : '';
     }
+    if (this.tut && this.mode === 'player') this.hint = '';
     this.hud.refresh(this);
+    this.updateTutorialUI();
   }
 
   dangerSet() {
@@ -454,6 +589,7 @@ class Game {
   showPreview(h) {
     const L = this.board.layers;
     L.preview.clear();
+    L.pushArrows.clear();
     const u = this.selectedUnit();
     if (this.mode !== 'player' || !u || !this.action) { this.hud.setPreview([]); return; }
     const { targets, options } = this.currentTargets();
@@ -475,10 +611,23 @@ class Game {
 
     const tags = [];
     const ghost = [];
+    const pushes = [];
     for (const e of this.state.entities) {
       if (e.dead) continue;
       const se = sim.entities.find((q) => q.id === e.id);
       const moved = se && (se.x !== e.x || se.y !== e.y);
+      // knockback preview: an arrow on every tile the target will slide through
+      if (moved && e.id !== u.id) {
+        const dx = Math.sign(se.x - e.x), dy = Math.sign(se.y - e.y);
+        if (dx === 0 || dy === 0) {
+          let x = e.x + dx, y = e.y + dy;
+          for (let i = 0; i < SIZE && inBounds(x, y); i++) {
+            pushes.push({ x, y, rot: Math.atan2(-dx, -dy) });
+            if (x === se.x && y === se.y) break;
+            x += dx; y += dy;
+          }
+        }
+      }
       if (!se || se.dead) {
         const where = se && inBounds(se.x, se.y) ? se : e;
         tags.push({ pos: wp(where.x, where.y, 1.45), text: '☠ KILL', cls: 'kill' });
@@ -503,6 +652,7 @@ class Game {
       for (const p of path.slice(0, -1)) ghost.push({ x: p.x, y: p.y, color: 'cyan', opacity: 0.5, scale: 0.4 });
     }
     L.preview.set(ghost, 'white', 0.8);
+    L.pushArrows.set(pushes, 'orange', 1);
     this.hud.setPreview(tags);
   }
 

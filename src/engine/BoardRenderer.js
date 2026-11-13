@@ -95,6 +95,7 @@ export class BoardRenderer {
       area: new HighlightLayer(this.overlayRoot, frame, { y: 0.011 }),
       danger: new HighlightLayer(this.overlayRoot, SpriteGenerator.frameTexture('danger'), { y: 0.014 }),
       arrows: new HighlightLayer(this.overlayRoot, SpriteGenerator.frameTexture('arrow'), { y: 0.02, size: 0.7 }),
+      pushArrows: new HighlightLayer(this.overlayRoot, SpriteGenerator.frameTexture('arrow'), { y: 0.035, size: 0.6 }),
       optArrows: new HighlightLayer(this.overlayRoot, SpriteGenerator.frameTexture('arrow'), { y: 0.03, size: 0.85 }),
       hover: new HighlightLayer(this.overlayRoot, SpriteGenerator.frameTexture('hover'), { y: 0.03, size: 1.0 }),
       select: new HighlightLayer(this.overlayRoot, frame, { y: 0.016 }),
@@ -105,12 +106,49 @@ export class BoardRenderer {
       focus: new HighlightLayer(this.overlayRoot, SpriteGenerator.frameTexture('danger'), { y: 0.022 }),
     };
     this.buildPlatform();
+    this.buildBeacons();
     this.shell = new THREE.Mesh(
       new THREE.SphereGeometry(0.09, 8, 8),
       new THREE.MeshBasicMaterial({ color: HDR(0xffd23c, 4), toneMapped: false }),
     );
     this.shell.visible = false;
     this.scene.add(this.shell);
+  }
+
+  // Pulsing 3D target rings used by the tutorial to point at the next click.
+  buildBeacons() {
+    this.beacons = [];
+    for (let i = 0; i < 2; i++) {
+      const g = new THREE.Group();
+      const mat = () => new THREE.MeshBasicMaterial({ color: COLORS.cyan.clone(), transparent: true, depthWrite: false, toneMapped: false, fog: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 40), mat());
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.04;
+      const outer = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.54, 40), mat());
+      outer.rotation.x = -Math.PI / 2;
+      outer.position.y = 0.04;
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 1.6, 32, 1, true), mat());
+      column.position.y = 0.8;
+      column.material.opacity = 0.12;
+      const chevron = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.22, 4), mat());
+      chevron.rotation.x = Math.PI;
+      g.add(ring, outer, column, chevron);
+      g.visible = false;
+      g.userData = { ring, outer, column, chevron };
+      this.scene.add(g);
+      this.beacons.push(g);
+    }
+  }
+
+  setBeacons(list) {
+    this.beacons.forEach((b, i) => {
+      const t = list[i];
+      b.visible = !!t;
+      if (!t) return;
+      b.position.copy(wp(t.x, t.y));
+      const c = COLORS[t.color] || COLORS.cyan;
+      b.children.forEach((m) => m.material.color.copy(c).multiplyScalar(1.6));
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -208,7 +246,7 @@ export class BoardRenderer {
         if (t.type === 'pillar') this.buildPillar(p);
       }
     }
-    this.buildCore();
+    this.buildCore(state);
     this.sync(state);
   }
 
@@ -232,9 +270,10 @@ export class BoardRenderer {
     this.boardGroup.add(g);
   }
 
-  buildCore() {
+  buildCore(state) {
     const g = new THREE.Group();
-    const p = wp(CORE_POS.x, CORE_POS.y);
+    const ce = state && state.entities.find((e) => e.kind === 'core');
+    const p = ce ? wp(ce.x, ce.y) : wp(CORE_POS.x, CORE_POS.y);
     g.position.copy(p);
     const ped = new THREE.Mesh(
       new THREE.CylinderGeometry(0.38, 0.44, 0.18, 8),
@@ -495,6 +534,19 @@ export class BoardRenderer {
     this.layers.preview.update(time, 7, 0.4);
     this.layers.focus.update(time, 18, 0.5);
     this.layers.optArrows.update(time, 8, 0.4);
+    this.layers.pushArrows.update(time, 8, 0.4);
+    for (const b of this.beacons) {
+      if (!b.visible) continue;
+      const { ring, outer, column, chevron } = b.userData;
+      const k = (time * 1.4) % 1;
+      outer.scale.setScalar(1 + k * 0.6);
+      outer.material.opacity = 1 - k;
+      ring.material.opacity = 0.75 + 0.25 * Math.sin(time * 8);
+      ring.rotation.z = time;
+      column.material.opacity = 0.08 + 0.06 * Math.sin(time * 4);
+      chevron.position.y = 1.55 + Math.sin(time * 5) * 0.1;
+      chevron.rotation.y = time * 2;
+    }
     this.layers.spawn.meshes.forEach((m) => { m.rotation.z = time * 1.5; });
 
     // ambient sparks on overloaded tiles and conduits

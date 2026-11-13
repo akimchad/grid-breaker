@@ -33,6 +33,10 @@ export class HUDManager {
     $('#again-btn').addEventListener('click', () => this.emit('restart'));
     $('#help-btn').addEventListener('click', () => $('#help').classList.toggle('show'));
     $('#help').addEventListener('click', () => $('#help').classList.remove('show'));
+    $('#tut-btn').addEventListener('click', () => this.emit('tutorial'));
+    $('#replay-tut-btn').addEventListener('click', () => this.emit('tutorial'));
+    $('#skip-btn').addEventListener('click', () => this.emit('skipTutorial'));
+    $('#tut-start-btn').addEventListener('click', () => this.emit('start'));
     // title screen sprite parade
     const parade = $('#parade');
     for (const k of ['breacher', 'netrunner', 'sniper', 'enforcer', 'artillery', 'spider']) {
@@ -182,6 +186,43 @@ export class HUDManager {
 
     // hint line
     $('#hint').innerHTML = game.hint || '';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tutorial
+  setTutorial(on) {
+    document.body.classList.toggle('tutorial', on);
+    if (!on) this._tutStep = -1;
+  }
+
+  tutorialBanner(info, celebrate = false) {
+    const b = $('#tut-banner');
+    if (this._tutStep !== info.index) {
+      this._tutStep = info.index;
+      let dots = '';
+      for (let i = 0; i < info.total; i++) dots += `<i class="${i < info.index ? 'done' : i === info.index ? 'cur' : ''}"></i>`;
+      b.innerHTML = `<div class="tut-head"><span>BOOT CAMP ${info.index + 1}/${info.total} · ${info.title}</span><span class="tut-dots">${dots}</span></div><div class="tut-text">${info.text}</div>`;
+      b.classList.remove('enter');
+      void b.offsetWidth;
+      b.classList.add('enter');
+    }
+    if (celebrate) {
+      b.classList.remove('advance');
+      void b.offsetWidth;
+      b.classList.add('advance');
+    }
+  }
+
+  nudgeTutorial() {
+    const b = $('#tut-banner');
+    b.classList.remove('nudge');
+    void b.offsetWidth;
+    b.classList.add('nudge');
+  }
+
+  setTutorialPulse(target) {
+    this.buttons.forEach((b, i) => b.classList.toggle('tutorial-pulse', target === i));
+    this.endBtn.classList.toggle('tutorial-pulse', target === 'end');
   }
 
   flashCore() {
