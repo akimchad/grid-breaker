@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GRID-BREAKER: NEON SIEGE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="app"></div>
+  <div id="world-ui"></div>
+
+  <div id="hud">
+    <!-- TOP LEFT: selected unit + core integrity -->
+    <section class="panel tl" id="unit-panel">
+      <div class="unit-row">
+        <div class="portrait-frame"><img id="portrait" alt="" /></div>
+        <div class="unit-info">
+          <div id="unit-name">NO UNIT</div>
+          <div id="unit-role"></div>
+          <div id="unit-hp"></div>
+          <div id="unit-status"></div>
+        </div>
+      </div>
+      <div id="core-panel">
+        <div class="core-head"><span>CORE INTEGRITY</span><span id="core-val">5/5</span></div>
+        <div id="core-bar"></div>
+      </div>
+    </section>
+    <div id="roster"></div>
+
+    <!-- TOP RIGHT: wave / turn / enemies / reset -->
+    <section class="panel tr" id="wave-panel">
+      <div class="title-row"><span class="logo">GRID-BREAKER</span><span id="phase-val"></span></div>
+      <div class="stats">
+        <div><span>WAVE</span><b id="wave-val">1/5</b></div>
+        <div><span>TURN</span><b id="turn-val">1/3</b></div>
+        <div><span>HOSTILES</span><b id="enemy-val">0</b></div>
+      </div>
+      <div class="sub-row"><span>TOTAL TURNS <b id="turn-total">1</b></span><span id="incoming"></span></div>
+      <div class="btn-row">
+        <button id="reset-btn" class="mini-btn"><span>⟲ RESET TURN</span><span class="sub">1 USE LEFT</span></button>
+        <button id="mute-btn" class="mini-btn small">♪ ON</button>
+        <button id="help-btn" class="mini-btn small">?</button>
+      </div>
+    </section>
+
+    <!-- hover inspector -->
+    <section class="panel" id="inspect"></section>
+
+    <!-- BOTTOM: action bar -->
+    <div id="bottom">
+      <div id="hint"></div>
+      <div id="action-bar"></div>
+    </div>
+    <div id="tooltip" class="panel"></div>
+    <div id="banner"></div>
+  </div>
+
+  <!-- TITLE -->
+  <div class="screen show" id="title-screen">
+    <div class="screen-inner">
+      <div class="kicker">// CORPORATE SECURITY BREACH DETECTED //</div>
+      <h1>GRID<span>-</span>BREAKER</h1>
+      <h2>NEON SIEGE</h2>
+      <div id="parade"></div>
+      <p class="pitch">Defend the <c>Unstable Power Core</c> for <b>5 waves</b>. Every drone <r>telegraphs</r> its attack before it strikes — shove, hijack and fry them so their own fire turns on each other.</p>
+      <button id="start-btn" class="big-btn">INITIATE BREACH ▶</button>
+      <div class="controls">
+        <span><b>CLICK</b> select / act</span><span><b>1 2 3</b> move · abilities</span><span><b>SPACE</b> end turn</span>
+        <span><b>TAB</b> cycle unit</span><span><b>ESC / RMB</b> cancel</span><span><b>WHEEL · RMB-DRAG · WASD</b> camera</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- END -->
+  <div class="screen" id="end-screen">
+    <div class="screen-inner">
+      <h1 id="end-title">GRID SECURED</h1>
+      <p id="end-sub"></p>
+      <div id="end-stats"></div>
+      <button id="again-btn" class="big-btn">NEW RUN ▶</button>
+      <div id="end-seed"></div>
+    </div>
+  </div>
+
+  <!-- HELP -->
+  <div id="help">
+    <div class="panel help-inner">
+      <h3>FIELD MANUAL</h3>
+      <ul>
+        <li><r>Enemy Intent</r> — drones move, then paint their target tiles red. Nothing hits yet.</li>
+        <li><c>Your Phase</c> — each merc has <b>1 MOVE</b> + <b>1 ACTION</b>, in either order.</li>
+        <li><o>Resolution</o> — attacks fire in badge order <b>#1, #2…</b>. Attacks move with a pushed drone.</li>
+        <li><b>Collisions</b> — knocked into a wall / unit / Core: <b>+1 DMG</b> to both.</li>
+        <li><b>Edge &amp; Pits</b> — knocked off the platform or into a pit = instant death.</li>
+        <li><y>Conduits</y> — fry knocked enemies instantly; 1 DMG to your units.</li>
+        <li><c>Barrels</c> — explode in a cross: 2 DMG + push outward.</li>
+        <li><b>Waves</b> last 3 turns. Warps glow before reinforcements land — stand on them to block.</li>
+        <li><b>RESET TURN</b> rewinds the player phase once per battle (Backspace).</li>
+      </ul>
+      <p class="dim">click anywhere to close · H to toggle</p>
+    </div>
+  </div>
+
+  <div id="scanlines"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
